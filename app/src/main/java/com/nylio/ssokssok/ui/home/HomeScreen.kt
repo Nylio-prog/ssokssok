@@ -322,7 +322,7 @@ private fun TodayCard(state: HomeState, onStudy: () -> Unit) {
     }
 }
 
-private fun indent(depth: Int) = (depth * 18).dp
+private fun indent(depth: Int) = (depth * 12).dp
 
 @Composable
 private fun FolderRow(
@@ -350,14 +350,19 @@ private fun FolderRow(
             FolderTile(node.name, node.depth)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(node.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CountLabel(node.due, "due", MaterialTheme.colorScheme.primary)
-                    CountLabel(newToday, "new", MaterialTheme.colorScheme.secondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // Zero counts are left out so the row fits on narrow screens and large fonts.
+                    if (node.due > 0) CountLabel(node.due, "due", MaterialTheme.colorScheme.primary)
+                    if (newToday > 0) CountLabel(newToday, "new", MaterialTheme.colorScheme.secondary)
                     val n = node.decks.size
-                    Text(
+                    if (node.due == 0 || newToday == 0) Text(
                         if (n == 1) "1 deck" else "$n decks",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                 }
             }
@@ -408,13 +413,17 @@ private fun DeckRow(
             DeckTile(d.deck, size = if (depth > 0) 44.dp else 52.dp)
             Column(Modifier.weight(1f).padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CountLabel(d.due, "due", MaterialTheme.colorScheme.primary)
-                    CountLabel(newToday, "new", MaterialTheme.colorScheme.secondary)
-                    Text(
-                        "${d.total} cards",
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (d.due > 0) CountLabel(d.due, "due", MaterialTheme.colorScheme.primary)
+                    if (newToday > 0) CountLabel(newToday, "new", MaterialTheme.colorScheme.secondary)
+                    if (d.due == 0 || newToday == 0) Text(
+                        if (d.total == 1) "1 card" else "${d.total} cards",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                 }
                 SlimProgress(
@@ -446,6 +455,8 @@ private fun CountLabel(n: Int, label: String, color: androidx.compose.ui.graphic
         )
         Text(
             "$n $label",
+            maxLines = 1,
+            softWrap = false,
             style = MaterialTheme.typography.bodySmall,
             color = if (n > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         )
