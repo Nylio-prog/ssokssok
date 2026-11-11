@@ -430,6 +430,6 @@ object DeckFormat {
         - example: a short natural sentence in polite speech (해요체) using the word; example_translation is its English.
         - notes: a short tip (irregular conjugation, nuance, mnemonic). Leave empty if nothing useful.
         - For grammar cards, put the pattern in korean (e.g. -고 싶다) and explain the usage in notes.
-        - To practise particles or endings, write a cloze in korean with double braces, e.g. 저{{는}} 학생이에요.
+        - To practice particles or endings, write a cloze in korean with double braces, e.g. 저{{는}} 학생이에요.
     """.trimIndent()
 }

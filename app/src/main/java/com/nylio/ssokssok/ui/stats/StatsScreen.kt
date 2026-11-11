@@ -110,7 +110,7 @@ private fun StreakCard(stats: StatsSnapshot) {
                     when {
                         stats.streak == 0 -> "Answer one card today to start a streak."
                         !stats.studiedToday -> "Study today to keep it going."
-                        else -> "Best so far: ${stats.bestStreak} days"
+                        else -> "Best so far: ${stats.bestStreak} " + if (stats.bestStreak == 1) "day" else "days"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -196,7 +196,8 @@ private fun Heatmap(stats: StatsSnapshot) {
             val sel = selected
             Text(
                 if (sel == null) {
-                    "${heat.count { it > 0 }} active days · ${heat.sum()} answers"
+                    heat.count { it > 0 }.let { if (it == 1) "1 active day" else "$it active days" } + " · " +
+                        heat.sum().let { if (it == 1) "1 answer" else "$it answers" }
                 } else {
                     val date = end.minusDays((heat.size - 1 - sel).toLong())
                     val n = heat[sel]

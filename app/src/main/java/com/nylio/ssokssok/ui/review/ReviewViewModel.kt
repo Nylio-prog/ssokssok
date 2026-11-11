@@ -78,6 +78,7 @@ class ReviewViewModel(private val container: AppContainer, val config: StudyConf
     val isPractice get() = noSchedule
 
     init {
+        container.speaker.warmUp()
         load()
     }
 

@@ -141,13 +141,13 @@ fun StudySetupSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SectionHeader("Session length")
+            SectionHeader("Cards per session")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(10, 20, 50, 0).forEach { n ->
                     FilterChip(
                         selected = size == n,
                         onClick = { size = n },
-                        label = { Text(if (n == 0) "Everything due" else "$n cards") },
+                        label = { Text(if (n == 0) "All" else "$n") },
                     )
                 }
             }

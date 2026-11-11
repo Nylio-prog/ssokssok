@@ -427,7 +427,7 @@ private fun Preview(
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "${result.warnings.size} lines skipped",
+                        if (result.warnings.size == 1) "1 line skipped" else "${result.warnings.size} lines skipped",
                         style = MaterialTheme.typography.titleSmall,
                         color = Ssok.colors.medium,
                         modifier = Modifier.weight(1f),

@@ -127,10 +127,11 @@ fun HomeScreen(container: AppContainer, nav: NavController) {
         },
     ) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize(),
+            // Padding (not content padding) at the top so cards never scroll under the status bar.
+            Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
             contentPadding = PaddingValues(
                 start = 20.dp, end = 20.dp,
-                top = padding.calculateTopPadding() + 8.dp,
+                top = 8.dp,
                 bottom = padding.calculateBottomPadding() + 96.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -260,8 +261,8 @@ private fun TodayCard(state: HomeState, onStudy: () -> Unit) {
             } else {
                 Text("All caught up", style = MaterialTheme.typography.headlineMedium)
                 Text(
-                    if (done > 0) "$done reviews done today. Come back tomorrow, or practise a bit more."
-                    else "Nothing is due. Practise a deck or add new words.",
+                    if (done > 0) "$done reviews done today. Come back tomorrow, or practice a bit more."
+                    else "Nothing is due. Practice a deck or add new words.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                 )
@@ -281,7 +282,7 @@ private fun TodayCard(state: HomeState, onStudy: () -> Unit) {
                 ),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
-                Text(if (waiting > 0) "Start studying" else "Practise", style = MaterialTheme.typography.titleMedium)
+                Text(if (waiting > 0) "Start studying" else "Practice", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.width(8.dp))
                 Icon(Icons.AutoMirrored.Outlined.ArrowForward, null)
             }

@@ -203,98 +203,30 @@ private fun StudyArea(
     onSpeakExample: () -> Unit,
     onRate: (Rating) -> Unit,
 ) {
-    val density = LocalDensity.current
-    val flip by animateFloatAsState(
-        targetValue = if (ui.revealed) 180f else 0f,
-        animationSpec = tween(420, easing = FastOutSlowInEasing),
-        label = "flip",
-    )
-    val dragX = remember(ui.turn) { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-    val swipeThreshold = with(density) { 110.dp.toPx() }
-
     Column(Modifier.fillMaxSize()) {
-        // ------------------------------------------------ the card
+        // Each card keeps its own flip and swipe state, so the outgoing card animates out as itself.
         AnimatedContent(
-            targetState = ui.turn,
+            targetState = CardSnap(ui.turn, item),
+            contentKey = { it.turn },
             transitionSpec = {
-                (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 14 }) togetherWith fadeOut(tween(120))
+                (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 14 }) togetherWith fadeOut(tween(140))
             },
             modifier = Modifier.weight(1f).fillMaxWidth(),
             label = "card",
-        ) { _ ->
-            Box(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp)) {
-                val swipeColor = when {
-                    dragX.value > 0 -> Ssok.colors.easy
-                    dragX.value < 0 -> Ssok.colors.hard
-                    else -> Color.Transparent
-                }
-                val swipeAmount = (abs(dragX.value) / swipeThreshold).coerceIn(0f, 1f)
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    shape = RoundedCornerShape(32.dp),
-                    border = BorderStroke(
-                        if (swipeAmount > 0f) 2.dp else 1.dp,
-                        if (swipeAmount > 0f) swipeColor.copy(alpha = 0.3f + 0.7f * swipeAmount) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                    ),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            rotationY = flip
-                            cameraDistance = 14f * density.density
-                            translationX = dragX.value
-                            rotationZ = dragX.value / 60f
-                        }
-                        .then(
-                            if (ui.revealed) {
-                                Modifier.pointerInput(ui.turn) {
-                                    detectHorizontalDragGestures(
-                                        onDragEnd = {
-                                            val v = dragX.value
-                                            scope.launch {
-                                                when {
-                                                    v > swipeThreshold -> onRate(Rating.EASY)
-                                                    v < -swipeThreshold -> onRate(Rating.HARD)
-                                                    else -> dragX.animateTo(0f, spring())
-                                                }
-                                            }
-                                        },
-                                        onDragCancel = { scope.launch { dragX.animateTo(0f, spring()) } },
-                                    ) { change, amount ->
-                                        change.consume()
-                                        scope.launch { dragX.snapTo(dragX.value + amount) }
-                                    }
-                                }
-                            } else {
-                                Modifier.clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    enabled = mode == AnswerMode.FLIP,
-                                    onClick = onReveal,
-                                )
-                            },
-                        ),
-                ) {
-                    if (flip <= 90f) {
-                        CardFront(item, onSpeak)
-                    } else {
-                        Box(Modifier.graphicsLayer { rotationY = 180f }) {
-                            CardBack(item, ui.check, showRomanization, onSpeak, onSpeakExample)
-                        }
-                    }
-                }
-                if (swipeAmount > 0.15f) {
-                    Pill(
-                        text = if (dragX.value > 0) "Easy" else "Hard",
-                        container = swipeColor,
-                        content = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 16.dp)
-                            .graphicsLayer { alpha = swipeAmount },
-                    )
-                }
-            }
+        ) { snap ->
+            val current = snap.turn == ui.turn
+            FlashCard(
+                item = snap.item,
+                revealed = if (current) ui.revealed else true,
+                check = if (current) ui.check else null,
+                interactive = current,
+                mode = mode,
+                showRomanization = showRomanization,
+                onReveal = onReveal,
+                onSpeak = onSpeak,
+                onSpeakExample = onSpeakExample,
+                onRate = onRate,
+            )
         }
 
         // ------------------------------------------------ controls
@@ -308,6 +240,114 @@ private fun StudyArea(
                     shape = RoundedCornerShape(20.dp),
                 ) { Text("Show answer", style = MaterialTheme.typography.titleMedium) }
             }
+        }
+    }
+}
+
+private data class CardSnap(val turn: Int, val item: StudyItem)
+
+@Composable
+private fun FlashCard(
+    item: StudyItem,
+    revealed: Boolean,
+    check: CheckResult?,
+    interactive: Boolean,
+    mode: AnswerMode,
+    showRomanization: Boolean,
+    onReveal: () -> Unit,
+    onSpeak: () -> Unit,
+    onSpeakExample: () -> Unit,
+    onRate: (Rating) -> Unit,
+) {
+    val density = LocalDensity.current
+    val flip by animateFloatAsState(
+        targetValue = if (revealed) 180f else 0f,
+        animationSpec = tween(420, easing = FastOutSlowInEasing),
+        label = "flip",
+    )
+    val dragX = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val swipeThreshold = with(density) { 110.dp.toPx() }
+    val swipeColor = when {
+        dragX.value > 0 -> Ssok.colors.easy
+        dragX.value < 0 -> Ssok.colors.hard
+        else -> Color.Transparent
+    }
+    val swipeAmount = (abs(dragX.value) / swipeThreshold).coerceIn(0f, 1f)
+
+    Box(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            shape = RoundedCornerShape(32.dp),
+            border = BorderStroke(
+                if (swipeAmount > 0f) 2.dp else 1.dp,
+                if (swipeAmount > 0f) swipeColor.copy(alpha = 0.3f + 0.7f * swipeAmount) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+            ),
+            // Gestures sit outside the flip: inside a layer rotated 180° they would be mirrored.
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    when {
+                        !interactive -> Modifier
+                        revealed -> Modifier.pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    val v = dragX.value
+                                    scope.launch {
+                                        when {
+                                            v > swipeThreshold -> {
+                                                dragX.animateTo(swipeThreshold * 4, tween(160))
+                                                onRate(Rating.EASY)
+                                            }
+                                            v < -swipeThreshold -> {
+                                                dragX.animateTo(-swipeThreshold * 4, tween(160))
+                                                onRate(Rating.HARD)
+                                            }
+                                            else -> dragX.animateTo(0f, spring())
+                                        }
+                                    }
+                                },
+                                onDragCancel = { scope.launch { dragX.animateTo(0f, spring()) } },
+                            ) { change, amount ->
+                                change.consume()
+                                scope.launch { dragX.snapTo(dragX.value + amount) }
+                            }
+                        }
+                        else -> Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            enabled = mode == AnswerMode.FLIP,
+                            onClick = onReveal,
+                        )
+                    },
+                )
+                .graphicsLayer {
+                    translationX = dragX.value
+                    rotationZ = dragX.value / 60f
+                }
+                .graphicsLayer {
+                    rotationY = flip
+                    cameraDistance = 14f * density.density
+                },
+        ) {
+            if (flip <= 90f) {
+                CardFront(item, onSpeak)
+            } else {
+                Box(Modifier.graphicsLayer { rotationY = 180f }) {
+                    CardBack(item, check, showRomanization, onSpeak, onSpeakExample)
+                }
+            }
+        }
+        if (swipeAmount > 0.15f) {
+            Pill(
+                text = if (dragX.value > 0) "Easy" else "Hard",
+                container = swipeColor,
+                content = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp)
+                    .graphicsLayer { alpha = swipeAmount },
+            )
         }
     }
 }

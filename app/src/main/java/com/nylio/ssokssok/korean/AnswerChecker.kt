@@ -103,8 +103,8 @@ object AnswerChecker {
         val verdict = if (dist <= tolerance) Verdict.CLOSE else Verdict.WRONG
         val (yours, target) = diff(if (korean) typed else typed.lowercase(), if (korean) alt else alt.lowercase())
         val note = when {
-            verdict == Verdict.CLOSE && korean -> "Almost: a small jamo slip"
-            verdict == Verdict.CLOSE -> "Almost: check the spelling"
+            verdict == Verdict.CLOSE && korean -> "One small jamo slip. Counted as a near miss."
+            verdict == Verdict.CLOSE -> "A small spelling slip. Counted as a near miss."
             else -> null
         }
         return CheckResult(verdict, alt, yours, target, note)
