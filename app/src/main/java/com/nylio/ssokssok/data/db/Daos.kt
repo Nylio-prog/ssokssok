@@ -67,7 +67,7 @@ interface DeckDao {
 
 @Dao
 interface CardDao {
-    @Query("SELECT * FROM cards WHERE deckId = :deckId ORDER BY createdAt DESC, id DESC")
+    @Query("SELECT * FROM cards WHERE deckId = :deckId ORDER BY createdAt ASC, id ASC")
     fun observeByDeck(deckId: Long): Flow<List<CardEntity>>
 
     @Query("SELECT * FROM cards ORDER BY updatedAt DESC, id DESC")
