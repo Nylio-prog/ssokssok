@@ -7,10 +7,11 @@ Android app (Kotlin, Jetpack Compose, Room) for studying Korean with decks and F
 - `app/src/main/java/com/nylio/ssokssok/`
   - `data/`: Room entities and DAOs (`db/`), `Repository` (session building, imports, stats), `Settings`.
   - `srs/Scheduler.kt`: FSRS-5 with three ratings (Hard→Again, Medium→Hard, Easy→Good).
-  - `korean/`: Hangul decomposition, cloze `{{ }}` parsing, typed-answer checking with jamo-level diff.
+  - `korean/`: Hangul decomposition, cloze `{{ }}` parsing, 한자 field parsing, typed-answer checking with jamo-level diff.
   - `importer/DeckFormat.kt`: text/TSV/CSV/JSON/Anki parsing, JSON export, AI prompt. Spec in `docs/deck-format.md`.
   - `ui/`: one package per screen; theme in `ui/theme/Theme.kt`.
-- `app/src/main/assets/starter.json`: decks seeded on first launch.
+- Deck names are paths: folders are separated by `::` (`서울대 한국어+::3A::1-1 시작과 만남`); `DeckPath` splits them and `ui/home/DeckTree.kt` builds the home tree. No decks are seeded on first launch.
+- Cards have an optional `hanja` field (`新=새 신; 入=들 입`), parsed by `korean/Hanja.kt`. There is no romanization.
 - Each card has two progress rows (direction 0 = Korean→English, 1 = English→Korean). Cloze cards only use direction 0.
 
 ## Checks

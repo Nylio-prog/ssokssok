@@ -10,6 +10,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "decks")
 data class DeckEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** Full path; folders are separated by "::", e.g. "서울대 한국어+::3A::1-1 시작과 만남". */
     val name: String,
     val description: String = "",
     /** One or two characters shown on the deck tile, e.g. "음" for a food deck. */
@@ -17,7 +18,32 @@ data class DeckEntity(
     /** Index into the deck color palette. */
     val color: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
-)
+) {
+    val path: DeckPath get() = DeckPath(name)
+}
+
+/** A deck name split into folders. "A::B::C" -> folders [A, B], leaf C. */
+@JvmInline
+value class DeckPath(val full: String) {
+    val parts: List<String> get() = full.split(SEP).map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { listOf(full) }
+    val leaf: String get() = parts.last()
+    val folders: List<String> get() = parts.dropLast(1)
+    val folder: String get() = folders.joinToString(SEP)
+    val depth: Int get() = parts.size - 1
+
+    companion object {
+        const val SEP = "::"
+
+        /** Accepts "::", " › " or " / " between folder levels, as typed in the deck dialog. */
+        fun normalizeFolder(input: String): String =
+            input.split(Regex("::|›|/")).map { it.trim() }.filter { it.isNotEmpty() }.joinToString(SEP)
+
+        fun join(folder: String, leaf: String): String =
+            (normalizeFolder(folder).split(SEP).filter { it.isNotEmpty() } + leaf.trim()).joinToString(SEP)
+
+        fun display(path: String): String = path.split(SEP).joinToString(" › ")
+    }
+}
 
 enum class CardType(val key: String, val label: String) {
     WORD("word", "Word"),
@@ -49,7 +75,9 @@ data class CardEntity(
     val korean: String,
     /** English side. Alternatives can be separated with ";" or "/". */
     val english: String,
-    val romanization: String = "",
+    /** Sino-Korean breakdown, e.g. "新=새 신; 入=들 입; 生=날 생". See [com.nylio.ssokssok.korean.Hanja]. */
+    @ColumnInfo(defaultValue = "")
+    val hanja: String = "",
     val example: String = "",
     val exampleTranslation: String = "",
     val notes: String = "",

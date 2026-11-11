@@ -78,6 +78,7 @@ import androidx.navigation.NavController
 import com.nylio.ssokssok.AppContainer
 import com.nylio.ssokssok.data.ImportSummary
 import com.nylio.ssokssok.data.db.DeckEntity
+import com.nylio.ssokssok.data.db.DeckPath
 import com.nylio.ssokssok.importer.DeckFormat
 import com.nylio.ssokssok.importer.DeckFormatException
 import com.nylio.ssokssok.importer.ParseResult
@@ -332,8 +333,9 @@ private fun FormatGuide(onCopy: (String, String) -> Unit) {
     SectionHeader("File format")
     Text(
         "One card per line: Korean, then English, separated by a tab or |. Optional columns follow in this order: " +
-            "romanization, example, example translation, notes, tags, type (word, sentence, grammar). " +
-            "A first line with column names lets you pick any order. “# deck: Name” starts a new deck.",
+            "hanja (新=새 신; 入=들 입), example, example translation, notes, tags, type (word, sentence, grammar). " +
+            "A first line with column names lets you pick any order. “# deck: Name” starts a new deck; " +
+            "put it in folders with ::, as in “# deck: 서울대 한국어+::3A::1-1 시작과 만남”.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -393,7 +395,7 @@ private fun Preview(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Description, null, tint = MaterialTheme.colorScheme.primary)
                     Text(
-                        deck.name ?: "Unnamed deck",
+                        deck.name?.let { DeckPath.display(it) } ?: "Unnamed deck",
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f).padding(start = 10.dp),
                         maxLines = 1,
@@ -495,7 +497,7 @@ private fun TargetPicker(decks: List<DeckEntity>, target: Long, onTarget: (Long?
     val current = decks.firstOrNull { it.id == target }
     ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }) {
         OutlinedTextField(
-            value = current?.name ?: "",
+            value = current?.let { DeckPath.display(it.name) } ?: "",
             onValueChange = {},
             readOnly = true,
             leadingIcon = current?.let { { DeckTile(it, size = 28.dp) } },
@@ -506,7 +508,7 @@ private fun TargetPicker(decks: List<DeckEntity>, target: Long, onTarget: (Long?
         ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             decks.forEach { d ->
                 DropdownMenuItem(
-                    text = { Text(d.name) },
+                    text = { Text(DeckPath.display(d.name)) },
                     leadingIcon = { DeckTile(d, size = 28.dp) },
                     onClick = { onTarget(d.id); open = false },
                 )

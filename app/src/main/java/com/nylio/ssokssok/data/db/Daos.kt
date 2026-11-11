@@ -91,6 +91,9 @@ interface CardDao {
     @Query("DELETE FROM cards WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("SELECT * FROM cards WHERE hanja LIKE '%' || :key || '%' AND id != :excludeId ORDER BY korean LIMIT 60")
+    suspend fun withHanja(key: String, excludeId: Long): List<CardEntity>
+
     @Query("SELECT korean || char(31) || english FROM cards WHERE deckId = :deckId")
     suspend fun keysForDeck(deckId: Long): List<String>
 }

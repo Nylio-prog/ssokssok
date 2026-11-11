@@ -10,7 +10,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 
 /** Text or a file handed to the app from elsewhere (share sheet, "open with"). */
 data class IncomingImport(val text: String, val fileName: String?)
@@ -31,11 +30,6 @@ class SsokApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
-        container.scope.launch {
-            container.repository.seedStarterIfNeeded {
-                assets.open("starter.json").bufferedReader().use { it.readText() }
-            }
-        }
     }
 }
 

@@ -5,6 +5,7 @@ import com.nylio.ssokssok.data.db.AppDatabase
 import com.nylio.ssokssok.data.db.CardEntity
 import com.nylio.ssokssok.data.db.CardState
 import com.nylio.ssokssok.data.db.DeckEntity
+import com.nylio.ssokssok.data.db.DeckPath
 import com.nylio.ssokssok.data.db.DeckSummary
 import com.nylio.ssokssok.data.db.Direction
 import com.nylio.ssokssok.data.db.ProgressEntity
@@ -133,7 +134,7 @@ class Repository(
             DeckEntity(
                 name = name.trim(),
                 description = description.trim(),
-                symbol = symbol.trim().take(2).ifEmpty { defaultSymbol(name, count) },
+                symbol = symbol.trim().take(3).ifEmpty { defaultSymbol(name, count) },
                 color = count % 8,
             ),
         )
@@ -143,7 +144,7 @@ class Repository(
     suspend fun deleteDeck(id: Long) = decks.delete(id)
 
     private fun defaultSymbol(name: String, index: Int): String {
-        val first = name.trim().firstOrNull { it.isLetterOrDigit() } ?: return DECK_SYMBOL_FALLBACK[index % 8]
+        val first = DeckPath(name).leaf.firstOrNull { it.isLetterOrDigit() } ?: return DECK_SYMBOL_FALLBACK[index % 8]
         return if (Hangul.isSyllable(first)) first.toString() else first.uppercase()
     }
 
@@ -346,7 +347,7 @@ class Repository(
                         deckId = deckId,
                         korean = c.korean,
                         english = c.english,
-                        romanization = c.romanization,
+                        hanja = c.hanja,
                         example = c.example,
                         exampleTranslation = c.exampleTranslation,
                         notes = c.notes,
@@ -371,12 +372,18 @@ class Repository(
 
     suspend fun exportAll(): String = DeckFormat.toJson(decks.allDecks().map { it to cards.byDeck(it.id) })
 
-    suspend fun seedStarterIfNeeded(loadAsset: () -> String) {
-        if (settings.value.starterSeeded) return
-        if (decks.count() == 0) {
-            runCatching { import(DeckFormat.parse(loadAsset(), "starter.json"), null) }
+    /** Other cards whose hanja field mentions the same character (or 훈 음 when no character is given). */
+    suspend fun cardsSharingHanja(key: String, excludeCardId: Long): List<CardEntity> =
+        if (key.isBlank()) emptyList() else cards.withHanja(key.trim(), excludeCardId)
+
+    /** Moves every deck under [fromFolder] to [toFolder] (used when a folder is renamed). */
+    suspend fun renameFolder(fromFolder: String, toFolder: String) = db.withTransaction {
+        val prefix = fromFolder + DeckPath.SEP
+        val target = DeckPath.normalizeFolder(toFolder)
+        decks.allDecks().filter { it.name.startsWith(prefix) }.forEach { d ->
+            val rest = d.name.removePrefix(prefix)
+            decks.update(d.copy(name = if (target.isEmpty()) rest else target + DeckPath.SEP + rest))
         }
-        settings.update { it.copy(starterSeeded = true) }
     }
 
     // ------------------------------------------------------------ Stats

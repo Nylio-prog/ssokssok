@@ -7,12 +7,12 @@ ssokssok imports two formats. Pick whichever is easier to produce. The app shows
 One card per line. Fields are separated by a **tab** (or `|`, `;`, or `,` for CSV). Only the first two fields are required.
 
 ```
-# deck: Food & Drinks
-# description: Words for ordering at a restaurant
-# symbol: 밥
-korean	english	romanization	example	example_translation	notes	tags	type
-사과	apple	sagwa	사과를 먹어요.	I eat an apple.		food fruit	word
-물	water	mul	물 주세요.	Water, please.		drink	word
+# deck: 서울대 한국어+::3A::1-1 시작과 만남
+# description: Starting university, meeting new people
+# symbol: 1-1
+korean	english	hanja	example	example_translation	notes	tags	type
+신입생	freshman; new student	新=새 신; 入=들 입; 生=날 생	신입생 환영회가 내일 있어요.	The welcome party for freshmen is tomorrow.			word
+동아리	(university) club		사진 동아리에 가입했어요.	I joined the photography club.			word
 저{{는}} 학생이에요.	I am a student.				는 marks the topic	particles	sentence
 ```
 
@@ -20,7 +20,7 @@ korean	english	romanization	example	example_translation	notes	tags	type
 |---|---|
 | `korean` | The Korean side. Wrap a part in `{{ }}` to make a fill-the-blank card; add a hint with `{{는::topic}}`. |
 | `english` | The meaning. Separate other accepted answers with `;` (and `,` for single words). |
-| `romanization` | Optional pronunciation help. |
+| `hanja` | Optional Sino-Korean breakdown, one part per syllable separated by `;`: the character, `=`, then its Korean meaning (훈) and reading (음), e.g. `新=새 신; 入=들 입; 生=날 생`. The character can be left out (`눈 설`), and an English gloss added in brackets (`雪=눈 설 (snow)`). Leave empty for native words. |
 | `example`, `example_translation` | Optional example sentence and its translation. |
 | `notes` | Optional tip: conjugation, nuance, mnemonic. |
 | `tags` | Optional, separated by spaces or commas. |
@@ -29,9 +29,10 @@ korean	english	romanization	example	example_translation	notes	tags	type
 Rules:
 
 - The header line is optional. Without it, columns are read in the order of the table above. With it, you can use any order, and names such as `front`/`back`, `ko`/`en`, `meaning` or `pronunciation` are understood.
-- `# deck: Name` starts a new deck, so one file can hold several decks. `# description:`, `# symbol:` (one or two characters for the deck badge) and `# type:` (default type for the following lines) are optional.
+- `# deck: Name` starts a new deck, so one file can hold several decks. Put decks in folders with `::`, as in Anki: `# deck: 서울대 한국어+::3A::1-1 시작과 만남` shows up under 서울대 한국어+ › 3A. `# description:`, `# symbol:` (up to three characters for the deck badge) and `# type:` (default type for the following lines) are optional.
 - Other lines starting with `#` are ignored. That covers Anki's plain-text export headers, so **Anki "Notes in Plain Text" exports import directly** (HTML and `[sound:]` tags are stripped).
 - If a line has the English first and the Korean second, the app swaps them.
+- Romanization isn't used. A `romanization` column is skipped, and so is a latin-only third column in files without a header (the old layout).
 - Lines with fewer than two fields are skipped and listed in the preview.
 
 ## JSON
@@ -40,11 +41,11 @@ Rules:
 {
   "decks": [
     {
-      "name": "Food & Drinks",
+      "name": "Topics::Food & Drinks",
       "description": "Words for ordering at a restaurant",
       "symbol": "밥",
       "cards": [
-        { "ko": "사과", "en": "apple", "rom": "sagwa", "example": "사과를 먹어요.", "exampleEn": "I eat an apple.", "tags": ["food"] },
+        { "ko": "음식", "en": "food", "hanja": "飮=마실 음; 食=먹을 식", "example": "한국 음식을 좋아해요.", "exampleEn": "I like Korean food.", "tags": ["food"] },
         { "ko": "-고 싶다", "en": "to want to (do)", "type": "grammar", "notes": "Verb stem + 고 싶다" }
       ]
     }

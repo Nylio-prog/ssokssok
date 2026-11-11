@@ -61,6 +61,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +84,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -95,11 +99,14 @@ import com.nylio.ssokssok.data.db.CardState
 import com.nylio.ssokssok.data.db.Direction
 import com.nylio.ssokssok.korean.CheckResult
 import com.nylio.ssokssok.korean.Cloze
+import com.nylio.ssokssok.korean.Hanja
+import com.nylio.ssokssok.korean.HanjaPart
 import com.nylio.ssokssok.korean.DiffKind
 import com.nylio.ssokssok.korean.DiffSegment
 import com.nylio.ssokssok.korean.Verdict
 import com.nylio.ssokssok.srs.Rating
 import com.nylio.ssokssok.ui.appViewModel
+import com.nylio.ssokssok.ui.components.HanjaFamilySheet
 import com.nylio.ssokssok.ui.components.Pill
 import com.nylio.ssokssok.ui.components.SlimProgress
 import com.nylio.ssokssok.ui.theme.Jakarta
@@ -115,6 +122,7 @@ fun ReviewScreen(container: AppContainer, nav: NavController, config: StudyConfi
     val ui by vm.ui.collectAsStateWithLifecycle()
     val settings by container.settings.flow.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
+    var hanjaPart by remember { mutableStateOf<HanjaPart?>(null) }
 
     BackHandler { nav.popBackStack() }
 
@@ -145,7 +153,7 @@ fun ReviewScreen(container: AppContainer, nav: NavController, config: StudyConfi
                     ui = ui,
                     item = item,
                     mode = config.answerMode,
-                    showRomanization = settings.showRomanization,
+                    onHanja = { hanjaPart = it },
                     onReveal = { vm.reveal() },
                     onGiveUp = { vm.reveal(giveUp = true) },
                     onTyped = vm::onTyped,
@@ -160,6 +168,9 @@ fun ReviewScreen(container: AppContainer, nav: NavController, config: StudyConfi
                         vm.rate(r)
                     },
                 )
+                hanjaPart?.let { part ->
+                    HanjaFamilySheet(container.repository, part, item.card.id, onDismiss = { hanjaPart = null })
+                }
             }
         }
     }
@@ -195,7 +206,7 @@ private fun StudyArea(
     ui: ReviewUi,
     item: StudyItem,
     mode: AnswerMode,
-    showRomanization: Boolean,
+    onHanja: (HanjaPart) -> Unit,
     onReveal: () -> Unit,
     onGiveUp: () -> Unit,
     onTyped: (String) -> Unit,
@@ -221,7 +232,7 @@ private fun StudyArea(
                 check = if (current) ui.check else null,
                 interactive = current,
                 mode = mode,
-                showRomanization = showRomanization,
+                onHanja = onHanja,
                 onReveal = onReveal,
                 onSpeak = onSpeak,
                 onSpeakExample = onSpeakExample,
@@ -253,7 +264,7 @@ private fun FlashCard(
     check: CheckResult?,
     interactive: Boolean,
     mode: AnswerMode,
-    showRomanization: Boolean,
+    onHanja: (HanjaPart) -> Unit,
     onReveal: () -> Unit,
     onSpeak: () -> Unit,
     onSpeakExample: () -> Unit,
@@ -334,7 +345,7 @@ private fun FlashCard(
                 CardFront(item, onSpeak)
             } else {
                 Box(Modifier.graphicsLayer { rotationY = 180f }) {
-                    CardBack(item, check, showRomanization, onSpeak, onSpeakExample)
+                    CardBack(item, check, onHanja, onSpeak, onSpeakExample)
                 }
             }
         }
@@ -456,7 +467,7 @@ private fun CardFront(item: StudyItem, onSpeak: () -> Unit) {
 private fun CardBack(
     item: StudyItem,
     check: CheckResult?,
-    showRomanization: Boolean,
+    onHanja: (HanjaPart) -> Unit,
     onSpeak: () -> Unit,
     onSpeakExample: () -> Unit,
 ) {
@@ -495,19 +506,11 @@ private fun CardBack(
                     fontSize = koreanSize(card.korean), lineHeight = koreanSize(card.korean) * 1.25f,
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (showRomanization && card.romanization.isNotBlank()) {
-                    Text(
-                        "[${card.romanization}]",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
-                SpeakButton(onSpeak)
-            }
+            SpeakButton(onSpeak, Modifier.padding(top = 4.dp))
         }
+
+        val hanja = remember(card.hanja) { Hanja.parse(card.hanja) }
+        if (hanja.isNotEmpty()) HanjaRow(hanja, onHanja)
 
         if (card.example.isNotBlank()) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
@@ -532,6 +535,45 @@ private fun CardBack(
                 Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(Icons.Outlined.TipsAndUpdates, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
                     Text(card.notes, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+        }
+    }
+}
+
+/** One chip per Sino-Korean syllable: reading big, 훈 below, character small. Tap to see related words. */
+@Composable
+fun HanjaRow(parts: List<HanjaPart>, onClick: ((HanjaPart) -> Unit)?) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        parts.forEach { part ->
+            Surface(
+                onClick = { onClick?.invoke(part) },
+                enabled = onClick != null,
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                Row(
+                    Modifier.padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        part.eum.ifEmpty { part.char },
+                        fontFamily = KoreanDisplay,
+                        fontSize = 24.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Column {
+                        Text(
+                            part.hun.ifEmpty { part.eum },
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        val sub = listOf(part.char, part.english).filter { it.isNotBlank() }.joinToString(" · ")
+                        if (sub.isNotEmpty()) {
+                            Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             }
         }
@@ -705,7 +747,10 @@ private fun RatingBar(ui: ReviewUi, onRate: (Rating) -> Unit) {
                             r.hint,
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
                             color = LocalContentColorAlpha(0.8f),
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         ui.previews[r]?.let {
                             Text(it, style = MaterialTheme.typography.labelMedium, color = LocalContentColorAlpha(0.8f))

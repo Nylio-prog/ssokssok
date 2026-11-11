@@ -8,7 +8,6 @@ import com.nylio.ssokssok.importer.DeckFormatException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 class DeckFormatTest {
     @Test
@@ -21,7 +20,8 @@ class DeckFormatTest {
         assertEquals(4, d.cards.size)
         assertEquals("사과", d.cards[0].korean)
         assertEquals("apple", d.cards[0].english)
-        assertEquals("sagwa", d.cards[0].romanization)
+        assertEquals("", d.cards[0].hanja)
+        assertEquals("飮=마실 음; 食=먹을 식", d.cards[1].hanja)
         assertEquals(listOf("food", "fruit"), d.cards[0].tags)
         assertEquals("저{{는}} 학생이에요.", d.cards[3].korean)
         assertTrue(r.warnings.isEmpty())
@@ -32,7 +32,7 @@ class DeckFormatTest {
         val r = DeckFormat.parse(DeckFormat.JSON_TEMPLATE)
         assertEquals(3, r.cardCount)
         assertEquals(CardType.GRAMMAR, r.decks[0].cards[1].type)
-        assertEquals("I eat an apple.", r.decks[0].cards[0].exampleTranslation)
+        assertEquals("I like Korean food.", r.decks[0].cards[0].exampleTranslation)
     }
 
     @Test
@@ -87,22 +87,36 @@ class DeckFormatTest {
     fun exportRoundTrips() {
         val deck = DeckEntity(id = 1, name = "Test", symbol = "테")
         val cards = listOf(
-            CardEntity(deckId = 1, korean = "물", english = "water", romanization = "mul", tags = "drink food", type = "word"),
+            CardEntity(deckId = 1, korean = "물", english = "water", hanja = "水=물 수", tags = "drink food", type = "word"),
         )
         val back = DeckFormat.parse(DeckFormat.toJson(listOf(deck to cards)))
         assertEquals("Test", back.decks[0].name)
         assertEquals("테", back.decks[0].symbol)
         assertEquals("water", back.decks[0].cards[0].english)
         assertEquals(listOf("drink", "food"), back.decks[0].cards[0].tags)
+        assertEquals("水=물 수", back.decks[0].cards[0].hanja)
     }
 
     @Test
-    fun starterAssetParses() {
-        val file = listOf("src/main/assets/starter.json", "app/src/main/assets/starter.json").map(::File).first { it.exists() }
-        val r = DeckFormat.parse(file.readText(), "starter.json")
-        assertEquals(3, r.decks.size)
-        assertTrue(r.warnings.isEmpty())
-        assertTrue(r.cardCount > 50)
+    fun deckFoldersAreKept() {
+        val text = """
+            # deck: 서울대 한국어+::3A::1-1 시작과 만남
+            # symbol: 1-1
+            신입생	freshman	新=새 신; 入=들 입; 生=날 생
+        """.trimIndent()
+        val d = DeckFormat.parse(text).decks.single()
+        assertEquals("서울대 한국어+::3A::1-1 시작과 만남", d.name)
+        assertEquals("1-1", d.symbol)
+        assertEquals("新=새 신; 入=들 입; 生=날 생", d.cards[0].hanja)
+    }
+
+    @Test
+    fun legacyRomanizationColumnIsSkipped() {
+        val r = DeckFormat.parse("사과\tapple\tsagwa\t사과를 먹어요.\tI eat an apple.")
+        val c = r.decks[0].cards[0]
+        assertEquals("", c.hanja)
+        assertEquals("사과를 먹어요.", c.example)
+        assertEquals("I eat an apple.", c.exampleTranslation)
     }
 
     @Test

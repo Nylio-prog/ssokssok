@@ -14,6 +14,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.runtime.LaunchedEffect
+import com.nylio.ssokssok.data.db.DeckPath
+import com.nylio.ssokssok.ui.home.DeckTree
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -101,6 +109,9 @@ data class DeckUi(
     val deck: DeckEntity? = null,
     val lines: List<CardLine> = emptyList(),
     val loaded: Boolean = false,
+    /** Decks in the same folder (this one included), in reading order, for quick switching. */
+    val siblings: List<DeckEntity> = emptyList(),
+    val folders: List<String> = emptyList(),
 )
 
 class DeckViewModel(private val container: AppContainer, private val deckId: Long) : ViewModel() {
@@ -110,15 +121,22 @@ class DeckViewModel(private val container: AppContainer, private val deckId: Lon
         repo.observeDeck(deckId),
         repo.observeCards(deckId),
         repo.observeProgress(deckId),
-    ) { deck, cards, progress ->
+        repo.observeDecks(),
+    ) { deck, cards, progress, all ->
         val byCard = progress.groupBy { it.cardId }
-        DeckUi(deck, cards.map { CardLine(it, statusOf(byCard[it.id].orEmpty())) }, true)
+        val folder = deck?.path?.folder
+        val siblings = if (folder.isNullOrEmpty()) emptyList() else all
+            .filter { it.path.folder == folder }
+            .sortedWith { a, b -> DeckTree.naturalCompare(a.path.leaf, b.path.leaf) }
+        val folders = all.flatMap { d -> d.path.folders.indices.map { i -> d.path.folders.take(i + 1).joinToString(DeckPath.SEP) } }
+            .distinct().sorted()
+        DeckUi(deck, cards.map { CardLine(it, statusOf(byCard[it.id].orEmpty())) }, true, siblings, folders)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DeckUi())
 
     fun rename(name: String, description: String, symbol: String) {
         val d = ui.value.deck ?: return
         viewModelScope.launch {
-            repo.updateDeck(d.copy(name = name.trim(), description = description.trim(), symbol = symbol.trim().take(2).ifEmpty { d.symbol }))
+            repo.updateDeck(d.copy(name = name.trim(), description = description.trim(), symbol = symbol.trim().take(3).ifEmpty { d.symbol }))
         }
     }
 
@@ -207,7 +225,7 @@ fun DeckScreen(container: AppContainer, nav: NavController, deckId: Long) {
             if (query.isBlank()) ui.lines else ui.lines.filter { line ->
                 val q = query.trim().lowercase()
                 line.card.korean.lowercase().contains(q) || line.card.english.lowercase().contains(q) ||
-                    line.card.romanization.lowercase().contains(q) || line.card.tags.lowercase().contains(q)
+                    line.card.hanja.lowercase().contains(q) || line.card.tags.lowercase().contains(q)
             }
         }
         LazyColumn(
@@ -215,7 +233,17 @@ fun DeckScreen(container: AppContainer, nav: NavController, deckId: Long) {
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 32.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            item { DeckHeader(deck, ui.lines, onStudy = { studying = true }, onAdd = { nav.navigate(Routes.editor(deckId = deckId)) }) }
+            item {
+                DeckHeader(
+                    deck, ui.lines, ui.siblings,
+                    onStudy = { studying = true },
+                    onAdd = { nav.navigate(Routes.editor(deckId = deckId)) },
+                    onSwitch = { id ->
+                        nav.popBackStack()
+                        nav.navigate(Routes.deck(id))
+                    },
+                )
+            }
             if (ui.loaded && ui.lines.isEmpty()) {
                 item {
                     EmptyState(
@@ -251,7 +279,7 @@ fun DeckScreen(container: AppContainer, nav: NavController, deckId: Long) {
     if (studying && deck != null) {
         StudySetupSheet(
             container = container,
-            title = deck.name,
+            title = deck.path.leaf,
             deckIds = listOf(deck.id),
             onDismiss = { studying = false },
             onStart = { cfg -> studying = false; nav.navigate(Routes.review(cfg)) },
@@ -261,6 +289,7 @@ fun DeckScreen(container: AppContainer, nav: NavController, deckId: Long) {
     if (editing && deck != null) {
         EditDeckDialog(
             deck = deck,
+            folders = ui.folders,
             onDismiss = { editing = false },
             onSave = { name, desc, symbol, color ->
                 editing = false
@@ -273,7 +302,7 @@ fun DeckScreen(container: AppContainer, nav: NavController, deckId: Long) {
     if (confirmDelete && deck != null) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete “${deck.name}”?") },
+            title = { Text("Delete “${deck.path.leaf}”?") },
             text = { Text("This removes the deck and its ${ui.lines.size} cards, with their progress. Export it first if you may want it back.") },
             confirmButton = {
                 TextButton(onClick = {
@@ -287,7 +316,14 @@ fun DeckScreen(container: AppContainer, nav: NavController, deckId: Long) {
 }
 
 @Composable
-private fun DeckHeader(deck: DeckEntity, lines: List<CardLine>, onStudy: () -> Unit, onAdd: () -> Unit) {
+private fun DeckHeader(
+    deck: DeckEntity,
+    lines: List<CardLine>,
+    siblings: List<DeckEntity>,
+    onStudy: () -> Unit,
+    onAdd: () -> Unit,
+    onSwitch: (Long) -> Unit,
+) {
     val total = lines.size
     val learned = lines.count { it.status != CardStatus.NEW }
     val mature = lines.count { it.status == CardStatus.MATURE }
@@ -295,9 +331,34 @@ private fun DeckHeader(deck: DeckEntity, lines: List<CardLine>, onStudy: () -> U
         Row(verticalAlignment = Alignment.CenterVertically) {
             DeckTile(deck, size = 72.dp)
             Column(Modifier.padding(start = 16.dp).weight(1f)) {
-                Text(deck.name, style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (deck.path.folder.isNotEmpty()) {
+                    Text(
+                        DeckPath.display(deck.path.folder),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(deck.path.leaf, style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (deck.description.isNotBlank()) {
                     Text(deck.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (siblings.size > 1) {
+            val listState = rememberLazyListState()
+            LaunchedEffect(deck.id) {
+                val i = siblings.indexOfFirst { it.id == deck.id }
+                if (i > 0) listState.scrollToItem((i - 1).coerceAtLeast(0))
+            }
+            LazyRow(state = listState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(siblings, key = { it.id }) { s ->
+                    FilterChip(
+                        selected = s.id == deck.id,
+                        onClick = { if (s.id != deck.id) onSwitch(s.id) },
+                        label = { Text(s.path.leaf, maxLines = 1) },
+                    )
                 }
             }
         }
@@ -366,8 +427,14 @@ fun StatusPill(status: CardStatus) {
 }
 
 @Composable
-private fun EditDeckDialog(deck: DeckEntity, onDismiss: () -> Unit, onSave: (String, String, String, Int) -> Unit) {
-    var name by rememberSaveable { mutableStateOf(deck.name) }
+private fun EditDeckDialog(
+    deck: DeckEntity,
+    folders: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String, Int) -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf(deck.path.leaf) }
+    var folder by rememberSaveable { mutableStateOf(DeckPath.display(deck.path.folder)) }
     var desc by rememberSaveable { mutableStateOf(deck.description) }
     var symbol by rememberSaveable { mutableStateOf(deck.symbol) }
     var color by rememberSaveable { mutableStateOf(deck.color) }
@@ -377,10 +444,26 @@ private fun EditDeckDialog(deck: DeckEntity, onDismiss: () -> Unit, onSave: (Str
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, shape = RoundedCornerShape(14.dp))
+                OutlinedTextField(
+                    folder, { folder = it },
+                    label = { Text("Folder") },
+                    placeholder = { Text("서울대 한국어+ › 3A") },
+                    supportingText = { Text("Separate levels with › or /. Leave empty for none.") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                )
+                val suggestions = folders.filter { DeckPath.display(it) != folder.trim() }.take(6)
+                if (suggestions.isNotEmpty()) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        suggestions.forEach { f ->
+                            SuggestionChip(onClick = { folder = DeckPath.display(f) }, label = { Text(DeckPath.display(f)) })
+                        }
+                    }
+                }
                 OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, shape = RoundedCornerShape(14.dp))
                 OutlinedTextField(
-                    symbol, { symbol = it.take(2) },
-                    label = { Text("Symbol (1–2 characters)") },
+                    symbol, { symbol = it.take(3) },
+                    label = { Text("Symbol (1–3 characters)") },
                     placeholder = { Text("e.g. 밥") },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
@@ -399,7 +482,12 @@ private fun EditDeckDialog(deck: DeckEntity, onDismiss: () -> Unit, onSave: (Str
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(name, desc, symbol, color) }, enabled = name.isNotBlank()) { Text("Save") } },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(DeckPath.join(folder, name.replace(DeckPath.SEP, " ")), desc, symbol, color) },
+                enabled = name.isNotBlank(),
+            ) { Text("Save") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

@@ -63,7 +63,7 @@ fun DeckTile(symbol: String, colorIndex: Int, size: Dp = 52.dp, modifier: Modifi
             text = symbol.ifEmpty { "가" },
             color = fg,
             fontFamily = KoreanDisplay,
-            fontSize = (size.value * 0.46f).sp,
+            fontSize = (size.value * when (symbol.length) { 0, 1 -> 0.46f; 2 -> 0.36f; else -> 0.27f }).sp,
             textAlign = TextAlign.Center,
             maxLines = 1,
         )

@@ -18,7 +18,7 @@ import kotlinx.serialization.json.putJsonArray
 data class ParsedCard(
     val korean: String,
     val english: String,
-    val romanization: String = "",
+    val hanja: String = "",
     val example: String = "",
     val exampleTranslation: String = "",
     val notes: String = "",
@@ -48,19 +48,23 @@ class DeckFormatException(message: String) : Exception(message)
  *  - JSON: {"decks":[{"name":..,"cards":[{"ko":..,"en":..}]}]}, a single deck object, or a bare array of cards.
  *  - Text: one card per line, fields separated by tabs, "|", ";" or ",". "# deck: Name" starts a deck.
  *    Plain-text exports from Anki ("Notes in Plain Text") are read too.
+ *  Deck names may contain folders separated by "::" (as in Anki), e.g. "서울대 한국어+::3A::1-1 시작과 만남".
  */
 object DeckFormat {
     private val json = Json { prettyPrint = true }
 
-    enum class Field { KOREAN, ENGLISH, ROMANIZATION, EXAMPLE, EXAMPLE_TRANSLATION, NOTES, TAGS, TYPE, IGNORE }
+    enum class Field { KOREAN, ENGLISH, HANJA, EXAMPLE, EXAMPLE_TRANSLATION, NOTES, TAGS, TYPE, IGNORE }
 
     private val FIELD_NAMES: Map<String, Field> = buildMap {
         listOf("korean", "ko", "kr", "kor", "hangul", "front", "word", "한국어", "한글", "term")
             .forEach { put(it, Field.KOREAN) }
         listOf("english", "en", "eng", "meaning", "back", "translation", "definition", "영어", "뜻")
             .forEach { put(it, Field.ENGLISH) }
+        listOf("hanja", "한자", "hanzi", "chinese", "sino")
+            .forEach { put(it, Field.HANJA) }
+        // Romanization is not used by the app; recognise the column so it is skipped, not misread.
         listOf("romanization", "rom", "roman", "romanisation", "pronunciation", "romaja", "발음")
-            .forEach { put(it, Field.ROMANIZATION) }
+            .forEach { put(it, Field.IGNORE) }
         listOf("example", "ex", "sentence", "example_ko", "exampleko", "예문")
             .forEach { put(it, Field.EXAMPLE) }
         listOf("example_translation", "exampletranslation", "example_en", "exampleen", "ex_en", "example translation")
@@ -72,9 +76,16 @@ object DeckFormat {
     }
 
     private val DEFAULT_COLUMNS = listOf(
-        Field.KOREAN, Field.ENGLISH, Field.ROMANIZATION, Field.EXAMPLE,
+        Field.KOREAN, Field.ENGLISH, Field.HANJA, Field.EXAMPLE,
         Field.EXAMPLE_TRANSLATION, Field.NOTES, Field.TAGS, Field.TYPE,
     )
+
+    /** Older files had romanization third. A latin-only third field means that layout. */
+    private val LEGACY_COLUMNS = listOf(
+        Field.KOREAN, Field.ENGLISH, Field.IGNORE, Field.EXAMPLE,
+        Field.EXAMPLE_TRANSLATION, Field.NOTES, Field.TAGS, Field.TYPE,
+    )
+    private val LATIN_ONLY = Regex("^[A-Za-z' .-]+$")
 
     fun parse(text: String, fileName: String? = null): ParseResult {
         val clean = text.removePrefix("﻿").trim()
@@ -126,7 +137,7 @@ object DeckFormat {
         return ParsedDeck(
             name = name,
             description = obj.str("description", "desc").orEmpty(),
-            symbol = obj.str("symbol", "icon").orEmpty().take(2),
+            symbol = obj.str("symbol", "icon").orEmpty().take(3),
             cards = jsonCards(cards, defaultType, warnings, if (name != null) "\"$name\" card" else "$label card"),
         )
     }
@@ -144,7 +155,7 @@ object DeckFormat {
                 fields = mapOf(
                     Field.KOREAN to ko,
                     Field.ENGLISH to en,
-                    Field.ROMANIZATION to o.str("romanization", "rom", "roman", "pronunciation").orEmpty(),
+                    Field.HANJA to o.str("hanja", "한자", "hanzi").orEmpty(),
                     Field.EXAMPLE to o.str("example", "ex", "sentence").orEmpty(),
                     Field.EXAMPLE_TRANSLATION to o.str("exampleTranslation", "example_translation", "exampleEn", "example_en", "exEn").orEmpty(),
                     Field.NOTES to o.str("notes", "note", "grammar", "explanation", "hint").orEmpty(),
@@ -211,9 +222,9 @@ object DeckFormat {
                     val key = m.groupValues[1].trim().lowercase()
                     val value = m.groupValues[2].trim()
                     when (key) {
-                        "deck", "name" -> startDeck(value.substringAfterLast("::"))
+                        "deck", "name" -> startDeck(value)
                         "description", "desc" -> current.description = value
-                        "symbol", "icon" -> current.symbol = value.take(2)
+                        "symbol", "icon" -> current.symbol = value.take(3)
                         "type" -> current.defaultType = CardType.fromKey(value)
                         "columns", "fields" -> {
                             columns = value.split(Regex("[,\\t|;]")).map { FIELD_NAMES[it.trim().lowercase()] ?: Field.IGNORE }
@@ -241,6 +252,9 @@ object DeckFormat {
                 }
             }
 
+            if (columns === DEFAULT_COLUMNS && fields.getOrNull(2)?.let { LATIN_ONLY.matches(it) } == true) {
+                columns = LEGACY_COLUMNS
+            }
             val map = mutableMapOf<Field, String>()
             fields.forEachIndexed { i, value ->
                 val f = columns.getOrNull(i) ?: return@forEachIndexed
@@ -333,7 +347,7 @@ object DeckFormat {
         return ParsedCard(
             korean = ko,
             english = en,
-            romanization = fields[Field.ROMANIZATION].orEmpty().trim(),
+            hanja = fields[Field.HANJA].orEmpty().trim(),
             example = fields[Field.EXAMPLE].orEmpty().trim(),
             exampleTranslation = fields[Field.EXAMPLE_TRANSLATION].orEmpty().trim(),
             notes = fields[Field.NOTES].orEmpty().trim(),
@@ -367,7 +381,7 @@ object DeckFormat {
                                 add(buildJsonObject {
                                     put("ko", c.korean)
                                     put("en", c.english)
-                                    if (c.romanization.isNotBlank()) put("rom", c.romanization)
+                                    if (c.hanja.isNotBlank()) put("hanja", c.hanja)
                                     if (c.example.isNotBlank()) put("example", c.example)
                                     if (c.exampleTranslation.isNotBlank()) put("exampleEn", c.exampleTranslation)
                                     if (c.notes.isNotBlank()) put("notes", c.notes)
@@ -389,10 +403,10 @@ object DeckFormat {
         # deck: Food & Drinks
         # description: Words for ordering at a restaurant
         # symbol: 밥
-        korean	english	romanization	example	example_translation	notes	tags
-        사과	apple	sagwa	사과를 먹어요.	I eat an apple.		food fruit
-        물	water	mul	물 주세요.	Water, please.		drink
-        맛있다	to be delicious	masitda	이 김치 정말 맛있어요!	This kimchi is really delicious!	Descriptive verb: 맛있어요 in polite speech	food
+        korean	english	hanja	example	example_translation	notes	tags
+        사과	apple		사과를 먹어요.	I eat an apple.		food fruit
+        음식	food	飮=마실 음; 食=먹을 식	한국 음식을 좋아해요.	I like Korean food.		food
+        맛있다	to be delicious		이 김치 정말 맛있어요!	This kimchi is really delicious!	Descriptive verb: 맛있어요 in polite speech	food
         저{{는}} 학생이에요.	I am a student.				는 marks the topic after a vowel	particles
     """.trimIndent()
 
@@ -404,7 +418,7 @@ object DeckFormat {
               "description": "Words for ordering at a restaurant",
               "symbol": "밥",
               "cards": [
-                { "ko": "사과", "en": "apple", "rom": "sagwa", "example": "사과를 먹어요.", "exampleEn": "I eat an apple.", "tags": ["food"] },
+                { "ko": "음식", "en": "food", "hanja": "飮=마실 음; 食=먹을 식", "example": "한국 음식을 좋아해요.", "exampleEn": "I like Korean food.", "tags": ["food"] },
                 { "ko": "-고 싶다", "en": "to want to (do)", "type": "grammar", "notes": "Verb stem + 고 싶다", "example": "한국에 가고 싶어요.", "exampleEn": "I want to go to Korea." },
                 { "ko": "저{{는}} 학생이에요.", "en": "I am a student.", "type": "sentence", "notes": "는 marks the topic after a vowel" }
               ]
@@ -414,19 +428,20 @@ object DeckFormat {
     """.trimIndent()
 
     /** Prompt the learner can paste into any AI chat to generate a deck in this format. */
-    fun aiPrompt(topic: String = "<TOPIC>", count: Int = 30, level: String = "beginner") = """
+    fun aiPrompt(topic: String = "<TOPIC>", count: Int = 30, level: String = "intermediate") = """
         Create a Korean study deck for a $level learner about "$topic" with $count cards.
         Output only a tab-separated text block in this exact format, no commentary:
 
-        # deck: <deck name>
+        # deck: <deck name, folders separated by ::, e.g. Topics::Food>
         # description: <one sentence>
         # symbol: <one Korean syllable that represents the deck>
-        korean	english	romanization	example	example_translation	notes	tags	type
+        korean	english	hanja	example	example_translation	notes	tags	type
 
         Rules:
         - One card per line, fields separated by a single TAB.
         - type is word, sentence or grammar.
         - english: separate alternative meanings with ";".
+        - hanja: for Sino-Korean words, each syllable's character with its Korean meaning (훈) and reading (음), separated by ";", e.g. 新=새 신; 入=들 입; 生=날 생. Leave empty for native Korean words and loanwords. No romanization anywhere.
         - example: a short natural sentence in polite speech (해요체) using the word; example_translation is its English.
         - notes: a short tip (irregular conjugation, nuance, mnemonic). Leave empty if nothing useful.
         - For grammar cards, put the pattern in korean (e.g. -고 싶다) and explain the usage in notes.

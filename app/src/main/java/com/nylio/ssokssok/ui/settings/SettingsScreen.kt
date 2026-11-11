@@ -124,9 +124,11 @@ fun SettingsScreen(container: AppContainer, nav: NavController) {
 
             SectionHeader("Cards")
             Group {
-                Toggle("Play Korean audio automatically", "Uses your phone's text-to-speech. Tap Listen twice to hear it slower.", s.autoplayAudio) { v -> update { it.copy(autoplayAudio = v) } }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Toggle("Show romanization", "Shown under the answer when the card has it.", s.showRomanization) { v -> update { it.copy(showRomanization = v) } }
+                Toggle(
+                    "Play Korean audio automatically",
+                    "Off: the app stays silent until you tap Listen. Uses your phone's text-to-speech; tap Listen twice to hear it slower.",
+                    s.autoplayAudio,
+                ) { v -> update { it.copy(autoplayAudio = v) } }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 Toggle("Vibrate on answers", null, s.haptics) { v -> update { it.copy(haptics = v) } }
             }

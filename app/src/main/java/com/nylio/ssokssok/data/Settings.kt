@@ -22,14 +22,15 @@ enum class AnswerMode(val label: String) {
 data class AppSettings(
     val newPerDay: Int = 15,
     val retention: Double = 0.90,
-    val autoplayAudio: Boolean = true,
-    val showRomanization: Boolean = true,
+    /** Off by default: the app stays silent unless Listen is tapped. */
+    val autoplayAudio: Boolean = false,
     val haptics: Boolean = true,
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val direction: DirectionMode = DirectionMode.RECOGNIZE,
     val answerMode: AnswerMode = AnswerMode.FLIP,
     val sessionSize: Int = 20,
-    val starterSeeded: Boolean = false,
+    /** Deck folders the learner has opened on the home screen. */
+    val expandedFolders: Set<String> = emptySet(),
 )
 
 class SettingsStore(context: Context) {
@@ -41,14 +42,13 @@ class SettingsStore(context: Context) {
     private fun read() = AppSettings(
         newPerDay = prefs.getInt("newPerDay", 15),
         retention = prefs.getFloat("retention", 0.90f).toDouble(),
-        autoplayAudio = prefs.getBoolean("autoplayAudio", true),
-        showRomanization = prefs.getBoolean("showRomanization", true),
+        autoplayAudio = prefs.getBoolean("autoplayAudio", false),
         haptics = prefs.getBoolean("haptics", true),
         theme = enumOr(prefs.getString("theme", null), ThemeMode.SYSTEM),
         direction = enumOr(prefs.getString("direction", null), DirectionMode.RECOGNIZE),
         answerMode = enumOr(prefs.getString("answerMode", null), AnswerMode.FLIP),
         sessionSize = prefs.getInt("sessionSize", 20),
-        starterSeeded = prefs.getBoolean("starterSeeded", false),
+        expandedFolders = prefs.getStringSet("expandedFolders", null)?.toSet() ?: emptySet(),
     )
 
     fun update(transform: (AppSettings) -> AppSettings) {
@@ -57,13 +57,12 @@ class SettingsStore(context: Context) {
             .putInt("newPerDay", s.newPerDay)
             .putFloat("retention", s.retention.toFloat())
             .putBoolean("autoplayAudio", s.autoplayAudio)
-            .putBoolean("showRomanization", s.showRomanization)
             .putBoolean("haptics", s.haptics)
             .putString("theme", s.theme.name)
             .putString("direction", s.direction.name)
             .putString("answerMode", s.answerMode.name)
             .putInt("sessionSize", s.sessionSize)
-            .putBoolean("starterSeeded", s.starterSeeded)
+            .putStringSet("expandedFolders", s.expandedFolders)
             .apply()
         _flow.value = s
     }

@@ -6,8 +6,10 @@ A Korean study app for Android: words, sentences and grammar, with decks you bui
 
 ## What it does
 
+- **Decks in folders.** Group decks by book and lesson (서울대 한국어+ › 3A › 1-1 시작과 만남). Folders fold open on the home screen, can be studied as a whole, and a lesson's page has chips to jump to the other lessons of the same book.
 - **Decks and cards.** Create decks, add a card in a few taps ("Save & next" keeps the deck and type for fast entry), edit or move cards between decks.
-- **Words, sentences, grammar.** Each card has Korean, English, and optional romanization, example sentence, notes and tags.
+- **Words, sentences, grammar.** Each card has Korean, English, and optionally its 한자, an example sentence, notes and tags.
+- **한자 breakdown.** Sino-Korean words show each syllable with its Korean meaning and reading (新 새 신 · 入 들 입 · 生 날 생). Tap a syllable to see the other words in your decks built on it.
 - **Fill-the-blank cards.** Select part of a sentence in the editor and tap *Make blank*: `저{{는}} 학생이에요` quizzes just the particle. Great for particles and endings.
 - **Choose how you study, every session.**
   - Direction: Korean → English, English → Korean, or both.
@@ -19,11 +21,11 @@ A Korean study app for Android: words, sentences and grammar, with decks you bui
   - English → Korean unlocks for a word once you recognise it (in mixed mode), so production builds on recognition.
   - *Tough cards*: cards that keep slipping are flagged and can be drilled on their own.
   - *Practice* runs through cards without touching the schedule.
-  - Korean text-to-speech; tap *Listen* twice to hear it slower.
+  - Korean text-to-speech on demand (the app is silent unless you tap *Listen*, or turn on autoplay in Settings); tap twice to hear it slower.
   - When typing, the app pre-selects a rating from correctness and speed.
 - **Import from anywhere.** Text/TSV/CSV/JSON files, pasted text, Anki plain-text exports, or text shared from a chat app. A built-in prompt lets any AI assistant generate a deck in the right format. See [docs/deck-format.md](docs/deck-format.md).
 - **Progress.** Streak, 18-week activity heatmap, 7-day forecast, recall rate, and a breakdown from new to mastered.
-- Light and dark themes. Starter decks (first words, everyday phrases, grammar basics) on first launch.
+- Light and dark themes.
 
 ## Install
 

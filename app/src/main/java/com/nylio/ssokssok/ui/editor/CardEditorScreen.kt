@@ -78,6 +78,10 @@ import com.nylio.ssokssok.data.db.CardEntity
 import com.nylio.ssokssok.data.db.CardType
 import com.nylio.ssokssok.data.db.DeckEntity
 import com.nylio.ssokssok.korean.Cloze
+import com.nylio.ssokssok.korean.Hanja
+import com.nylio.ssokssok.ui.review.HanjaRow
+import com.nylio.ssokssok.data.db.DeckPath
+import com.nylio.ssokssok.ui.home.DeckTree
 import com.nylio.ssokssok.ui.appViewModel
 import com.nylio.ssokssok.ui.components.DeckTile
 import com.nylio.ssokssok.ui.home.NewDeckDialog
@@ -108,7 +112,7 @@ class EditorViewModel(
     var type by mutableStateOf(CardType.WORD)
     var korean by mutableStateOf(TextFieldValue(""))
     var english by mutableStateOf("")
-    var romanization by mutableStateOf("")
+    var hanja by mutableStateOf("")
     var example by mutableStateOf("")
     var exampleTranslation by mutableStateOf("")
     var notes by mutableStateOf("")
@@ -134,12 +138,12 @@ class EditorViewModel(
                     type = c.cardType
                     korean = TextFieldValue(c.korean, TextRange(c.korean.length))
                     english = c.english
-                    romanization = c.romanization
+                    hanja = c.hanja
                     example = c.example
                     exampleTranslation = c.exampleTranslation
                     notes = c.notes
                     tags = c.tags
-                    showDetails = listOf(c.romanization, c.example, c.notes, c.tags).any { it.isNotBlank() }
+                    showDetails = listOf(c.hanja, c.example, c.notes, c.tags).any { it.isNotBlank() }
                 }
             }
         } else if (initialDeckId == null) {
@@ -184,7 +188,7 @@ class EditorViewModel(
             deckId = deck,
             korean = korean.text.trim(),
             english = english.trim(),
-            romanization = romanization.trim(),
+            hanja = hanja.trim(),
             example = example.trim(),
             exampleTranslation = exampleTranslation.trim(),
             notes = notes.trim(),
@@ -202,7 +206,7 @@ class EditorViewModel(
     fun clearForNext() {
         korean = TextFieldValue("")
         english = ""
-        romanization = ""
+        hanja = ""
         example = ""
         exampleTranslation = ""
         notes = ""
@@ -297,7 +301,7 @@ fun CardEditorScreen(container: AppContainer, nav: NavController, cardId: Long?,
                                 vm.save { card ->
                                     vm.clearForNext()
                                     runCatching { koreanFocus.requestFocus() }
-                                    val deckName = decks.firstOrNull { it.id == card.deckId }?.name ?: "deck"
+                                    val deckName = decks.firstOrNull { it.id == card.deckId }?.path?.leaf ?: "deck"
                                     scope.launch { snackbar.showSnackbar("Saved “${Cloze.plain(card.korean)}” to $deckName") }
                                 }
                             },
@@ -339,12 +343,14 @@ fun CardEditorScreen(container: AppContainer, nav: NavController, cardId: Long?,
                 onValueChange = { vm.korean = it },
                 label = { Text("Korean") },
                 placeholder = {
+                    // Same font and size as the typed text, so the hint doesn't jump when typing starts.
                     Text(
                         when (vm.type) {
                             CardType.WORD -> "사과"
                             CardType.SENTENCE -> "사과를 먹어요."
                             CardType.GRAMMAR -> "-고 싶다"
                         },
+                        style = koreanFieldStyle,
                     )
                 },
                 supportingText = {
@@ -356,7 +362,7 @@ fun CardEditorScreen(container: AppContainer, nav: NavController, cardId: Long?,
                         },
                     )
                 },
-                textStyle = TextStyle(fontFamily = KoreanDisplay, fontSize = 24.sp, lineHeight = 32.sp),
+                textStyle = koreanFieldStyle,
                 shape = RoundedCornerShape(16.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth().focusRequester(koreanFocus),
@@ -407,7 +413,7 @@ fun CardEditorScreen(container: AppContainer, nav: NavController, cardId: Long?,
                 value = vm.english,
                 onValueChange = { vm.english = it },
                 label = { Text("English") },
-                placeholder = { Text(if (vm.type == CardType.WORD) "apple" else "I eat an apple.") },
+                placeholder = { Text(if (vm.type == CardType.WORD) "apple" else "I eat an apple.", style = MaterialTheme.typography.titleMedium) },
                 supportingText = { Text("Separate other accepted answers with ;") },
                 shape = RoundedCornerShape(16.dp),
                 textStyle = MaterialTheme.typography.titleMedium,
@@ -418,25 +424,28 @@ fun CardEditorScreen(container: AppContainer, nav: NavController, cardId: Long?,
             TextButton(onClick = { vm.showDetails = !vm.showDetails }) {
                 Icon(if (vm.showDetails) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null)
                 Text(
-                    if (vm.showDetails) "Fewer details" else "Pronunciation, example, notes, tags",
+                    if (vm.showDetails) "Fewer details" else "한자, example, notes, tags",
                     modifier = Modifier.padding(start = 6.dp),
                 )
             }
             AnimatedVisibility(vm.showDetails) {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     OutlinedTextField(
-                        vm.romanization, { vm.romanization = it },
-                        label = { Text("Romanization") },
-                        placeholder = { Text("sagwa") },
+                        vm.hanja, { vm.hanja = it },
+                        label = { Text("한자") },
+                        placeholder = { Text("新=새 신; 入=들 입; 生=날 생") },
+                        supportingText = { Text("Each syllable: meaning and reading (눈 설). The character is optional.") },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    val hanjaParts = remember(vm.hanja) { Hanja.parse(vm.hanja) }
+                    if (hanjaParts.isNotEmpty()) HanjaRow(hanjaParts, onClick = null)
                     OutlinedTextField(
                         vm.example, { vm.example = it },
                         label = { Text("Example sentence") },
-                        placeholder = { Text("사과를 먹어요.") },
-                        textStyle = TextStyle(fontFamily = KoreanDisplay, fontSize = 19.sp),
+                        placeholder = { Text("사과를 먹어요.", style = exampleFieldStyle) },
+                        textStyle = exampleFieldStyle,
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -468,7 +477,12 @@ fun CardEditorScreen(container: AppContainer, nav: NavController, cardId: Long?,
     }
 
     if (newDeck) {
-        NewDeckDialog(onDismiss = { newDeck = false }, onCreate = { newDeck = false; vm.createDeck(it) })
+        NewDeckDialog(
+            folders = decks.map { it.path.folder }.filter { it.isNotEmpty() }.distinct().sorted(),
+            initialFolder = decks.firstOrNull { it.id == vm.deckId }?.path?.folder.orEmpty(),
+            onDismiss = { newDeck = false },
+            onCreate = { newDeck = false; vm.createDeck(it) },
+        )
     }
     if (confirmDelete) {
         AlertDialog(
@@ -485,13 +499,16 @@ fun CardEditorScreen(container: AppContainer, nav: NavController, cardId: Long?,
     }
 }
 
+private val koreanFieldStyle = TextStyle(fontFamily = KoreanDisplay, fontSize = 24.sp, lineHeight = 32.sp)
+private val exampleFieldStyle = TextStyle(fontFamily = KoreanDisplay, fontSize = 19.sp, lineHeight = 26.sp)
+
 @Composable
 private fun DeckPicker(decks: List<DeckEntity>, selected: Long?, onSelect: (Long) -> Unit, onNew: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     val current = decks.firstOrNull { it.id == selected }
     ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }) {
         OutlinedTextField(
-            value = current?.name ?: "Choose a deck",
+            value = current?.let { DeckPath.display(it.name) } ?: "Choose a deck",
             onValueChange = {},
             readOnly = true,
             label = { Text("Deck") },
@@ -501,9 +518,20 @@ private fun DeckPicker(decks: List<DeckEntity>, selected: Long?, onSelect: (Long
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            decks.forEach { d ->
+            decks.sortedWith { a, b -> DeckTree.naturalCompare(a.name, b.name) }.forEach { d ->
                 DropdownMenuItem(
-                    text = { Text(d.name) },
+                    text = {
+                        Column {
+                            Text(d.path.leaf)
+                            if (d.path.folder.isNotEmpty()) {
+                                Text(
+                                    DeckPath.display(d.path.folder),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    },
                     leadingIcon = { DeckTile(d, size = 28.dp) },
                     onClick = { onSelect(d.id); open = false },
                 )

@@ -1,5 +1,7 @@
 package com.nylio.ssokssok.ui.browse
 
+import com.nylio.ssokssok.data.db.DeckPath
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -77,7 +79,7 @@ fun BrowseScreen(container: AppContainer, nav: NavController) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(Filter.ALL) }
 
-    val deckNames = remember(data.decks) { data.decks.associate { it.id to it.name } }
+    val deckNames = remember(data.decks) { data.decks.associate { it.id to DeckPath.display(it.name) } }
     val shown = remember(data.lines, query, filter) {
         val q = query.trim().lowercase()
         // Searching "ㅅㄱ" finds 사과: match on initial consonants too.
@@ -96,7 +98,7 @@ fun BrowseScreen(container: AppContainer, nav: NavController) {
                 q.isEmpty() ||
                     Cloze.plain(c.korean).lowercase().contains(q) ||
                     c.english.lowercase().contains(q) ||
-                    c.romanization.lowercase().contains(q) ||
+                    c.hanja.lowercase().contains(q) ||
                     c.tags.lowercase().contains(q) ||
                     c.notes.lowercase().contains(q) ||
                     (qJamo.length >= 2 && Hangul.decompose(Cloze.plain(c.korean)).contains(qJamo))

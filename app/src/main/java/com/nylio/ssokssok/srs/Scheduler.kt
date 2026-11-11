@@ -17,7 +17,7 @@ import kotlin.random.Random
  */
 enum class Rating(val grade: Int, val label: String, val hint: String) {
     HARD(1, "Hard", "Didn't know"),
-    MEDIUM(2, "Medium", "Took a moment"),
+    MEDIUM(2, "Medium", "Took time"),
     EASY(3, "Easy", "Instant");
 
     companion object {
