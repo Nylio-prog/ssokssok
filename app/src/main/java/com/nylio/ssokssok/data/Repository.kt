@@ -84,7 +84,15 @@ data class ReviewOutcome(
     val requeue: Boolean,
 )
 
-data class ImportSummary(val decksCreated: Int, val cardsAdded: Int, val duplicates: Int, val deckIds: List<Long>)
+data class ImportSummary(
+    val decksCreated: Int,
+    val cardsAdded: Int,
+    /** Unchanged cards that were already in the deck. */
+    val duplicates: Int,
+    val deckIds: List<Long>,
+    /** Existing cards whose content (English, 한자, example, notes...) was refreshed. Progress is kept. */
+    val cardsUpdated: Int = 0,
+)
 
 data class StatsSnapshot(
     val streak: Int = 0,
@@ -318,6 +326,7 @@ class Repository(
         var created = 0
         var added = 0
         var dupes = 0
+        var updated = 0
         val touched = mutableListOf<Long>()
         for (deck in parsed.decks) {
             val deckId = targetDeckId ?: run {
@@ -335,13 +344,37 @@ class Repository(
                     )
                 }
             }
-            val existing = cards.keysForDeck(deckId).toHashSet()
+            // Re-importing an edited file refreshes the cards already there (same Korean, preferably
+            // same English) instead of skipping them. Card ids stay, so review progress is untouched.
+            val existing = cards.byDeck(deckId)
+            val claimed = HashSet<Long>()
+            val seenInFile = HashSet<String>()
             val now = System.currentTimeMillis()
             val toInsert = mutableListOf<CardEntity>()
+            val toUpdate = mutableListOf<CardEntity>()
             deck.cards.forEachIndexed { i, c ->
                 val key = c.korean + '\u001F' + c.english
-                if (!existing.add(key)) {
+                val match = existing.firstOrNull { it.id !in claimed && it.korean == c.korean && it.english == c.english }
+                    ?: existing.firstOrNull { it.id !in claimed && it.korean == c.korean }
+                if (!seenInFile.add(key)) {
                     dupes++
+                } else if (match != null) {
+                    claimed += match.id
+                    val refreshed = match.copy(
+                        english = c.english,
+                        hanja = c.hanja,
+                        example = c.example,
+                        exampleTranslation = c.exampleTranslation,
+                        notes = c.notes,
+                        tags = c.tags.joinToString(" ").ifEmpty { match.tags },
+                        type = c.type.key,
+                    )
+                    if (refreshed != match) {
+                        toUpdate += refreshed.copy(updatedAt = now)
+                        updated++
+                    } else {
+                        dupes++
+                    }
                 } else {
                     toInsert += CardEntity(
                         deckId = deckId,
@@ -360,9 +393,10 @@ class Repository(
                 }
             }
             added += importer.insertCardsWithProgress(toInsert)
+            if (toUpdate.isNotEmpty()) importer.updateCards(toUpdate)
             if (deckId !in touched) touched += deckId
         }
-        ImportSummary(created, added, dupes, touched)
+        ImportSummary(created, added, dupes, touched, updated)
     }
 
     suspend fun exportDeck(deckId: Long): String {

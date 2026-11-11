@@ -151,6 +151,10 @@ interface ImportDao {
     @Insert
     suspend fun insertCards(cards: List<CardEntity>): List<Long>
 
+    /** Plain UPDATE (never REPLACE, which would delete the row and cascade to its progress). */
+    @Update
+    suspend fun updateCards(cards: List<CardEntity>)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertProgress(rows: List<ProgressEntity>)
 

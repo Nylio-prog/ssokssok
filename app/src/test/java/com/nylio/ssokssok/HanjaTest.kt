@@ -23,6 +23,10 @@ class HanjaTest {
         assertEquals(listOf(HanjaPart("學", "배울", "학", "study")), Hanja.parse("學 배울 학 (study)"))
         assertEquals(listOf(HanjaPart("", "장려할", "장"), HanjaPart("", "배울", "학")), Hanja.parse("장려할 장 · 배울 학"))
         assertTrue(Hanja.parse("  ").isEmpty())
+        assertEquals(
+            listOf(HanjaPart("生", "날", "생", "life; student"), HanjaPart("會", "모일", "회", "meet, gathering")),
+            Hanja.parse("生=날 생 (life; student); 會=모일 회 (meet, gathering)"),
+        )
     }
 
     @Test

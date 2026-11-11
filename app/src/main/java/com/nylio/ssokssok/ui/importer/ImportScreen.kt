@@ -465,7 +465,7 @@ private fun Preview(
         if (target != null) TargetPicker(decks, target, onTarget)
     }
     Text(
-        "Cards already in the deck (same Korean and English) are skipped.",
+        "Cards already in the deck (same Korean) get the file's English, 한자, example and notes. Their progress is kept.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -525,10 +525,20 @@ private fun Done(summary: ImportSummary, onOpen: () -> Unit, onMore: () -> Unit)
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(Icons.Outlined.CheckCircle, null, tint = Ssok.colors.easy, modifier = Modifier.size(64.dp))
-        Text("${summary.cardsAdded} cards added", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            when {
+                summary.cardsAdded == 0 && summary.cardsUpdated > 0 ->
+                    if (summary.cardsUpdated == 1) "1 card updated" else "${summary.cardsUpdated} cards updated"
+                summary.cardsAdded == 1 -> "1 card added"
+                else -> "${summary.cardsAdded} cards added"
+            },
+            style = MaterialTheme.typography.headlineMedium,
+        )
         val parts = buildList {
             if (summary.decksCreated > 0) add(if (summary.decksCreated == 1) "1 new deck" else "${summary.decksCreated} new decks")
-            if (summary.duplicates > 0) add("${summary.duplicates} duplicates skipped")
+            if (summary.cardsAdded > 0 && summary.cardsUpdated > 0) add("${summary.cardsUpdated} updated")
+            if (summary.cardsUpdated > 0) add("progress kept")
+            if (summary.duplicates > 0) add("${summary.duplicates} unchanged")
         }
         if (parts.isNotEmpty()) {
             Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

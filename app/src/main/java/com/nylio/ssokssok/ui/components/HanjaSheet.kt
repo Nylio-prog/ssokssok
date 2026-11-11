@@ -44,10 +44,14 @@ fun HanjaFamilySheet(repository: Repository, part: HanjaPart, cardId: Long, onDi
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(part.eum.ifEmpty { part.char }, fontFamily = KoreanDisplay, fontSize = 44.sp, color = MaterialTheme.colorScheme.primary)
                 Column(Modifier.padding(bottom = 6.dp)) {
-                    Text(part.name.ifEmpty { part.char }, style = MaterialTheme.typography.titleLarge)
-                    val sub = listOf(part.char, part.english).filter { it.isNotBlank() }.joinToString(" · ")
-                    if (sub.isNotEmpty()) {
-                        Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(part.name.ifEmpty { part.char }, style = MaterialTheme.typography.titleLarge)
+                        if (part.char.isNotEmpty() && part.name.isNotEmpty()) {
+                            Text(part.char, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (part.english.isNotBlank()) {
+                        Text(part.english, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
             }

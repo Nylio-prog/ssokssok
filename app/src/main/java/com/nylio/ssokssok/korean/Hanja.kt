@@ -14,13 +14,28 @@ data class HanjaPart(val char: String, val hun: String, val eum: String, val eng
  * "雪=눈 설", "雪 눈 설", "눈 설" or "雪=눈 설 (snow)".
  */
 object Hanja {
-    private val PART_SPLIT = Regex("\\s*[;·,]\\s*")
     private val ENGLISH = Regex("\\(([^)]*)\\)\\s*$")
 
     fun isHan(c: Char): Boolean = Character.UnicodeScript.of(c.code) == Character.UnicodeScript.HAN
 
-    fun parse(field: String): List<HanjaPart> =
-        field.split(PART_SPLIT).mapNotNull { parsePart(it) }
+    fun parse(field: String): List<HanjaPart> = splitParts(field).mapNotNull { parsePart(it) }
+
+    /** Splits on ; · , but not inside brackets, so glosses like "(life; student)" stay whole. */
+    private fun splitParts(field: String): List<String> {
+        val out = mutableListOf<String>()
+        val sb = StringBuilder()
+        var depth = 0
+        for (c in field) {
+            when {
+                c == '(' -> { depth++; sb.append(c) }
+                c == ')' -> { depth = (depth - 1).coerceAtLeast(0); sb.append(c) }
+                depth == 0 && (c == ';' || c == '·' || c == ',') -> { out += sb.toString(); sb.clear() }
+                else -> sb.append(c)
+            }
+        }
+        out += sb.toString()
+        return out
+    }
 
     private fun parsePart(raw: String): HanjaPart? {
         var s = raw.trim()

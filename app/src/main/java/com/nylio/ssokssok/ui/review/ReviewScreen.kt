@@ -569,7 +569,7 @@ fun HanjaRow(parts: List<HanjaPart>, onClick: ((HanjaPart) -> Unit)?) {
                             part.hun.ifEmpty { part.eum },
                             style = MaterialTheme.typography.labelLarge,
                         )
-                        val sub = listOf(part.char, part.english).filter { it.isNotBlank() }.joinToString(" · ")
+                        val sub = listOf(part.english, part.char).filter { it.isNotBlank() }.joinToString(" · ")
                         if (sub.isNotEmpty()) {
                             Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
