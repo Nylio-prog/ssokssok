@@ -125,6 +125,7 @@ class Repository(
     private val progress = db.progressDao()
     private val reviews = db.reviewDao()
     private val importer = db.importDao()
+    private val backups = db.backupDao()
 
     // ------------------------------------------------------------ Decks
 
@@ -404,7 +405,29 @@ class Repository(
         return DeckFormat.toJson(listOf(deck to cards.byDeck(deckId)))
     }
 
-    suspend fun exportAll(): String = DeckFormat.toJson(decks.allDecks().map { it to cards.byDeck(it.id) })
+    /** Everything, as one restorable file. */
+    suspend fun backup(appVersion: String): String {
+        val b = db.withTransaction {
+            BackupFile(
+                createdAt = System.currentTimeMillis(),
+                appVersion = appVersion,
+                settings = settings.value,
+                decks = backups.decks(),
+                cards = backups.cards(),
+                progress = backups.progress(),
+                reviews = backups.reviews(),
+            )
+        }
+        return Backup.encode(b)
+    }
+
+    /** Replaces all decks, cards, progress, history and settings with the backup's. */
+    suspend fun restore(backup: BackupFile) {
+        val b = Backup.consistent(backup)
+        backups.replaceAll(b.decks, b.cards, b.progress, b.reviews)
+        b.settings?.let { restored -> settings.update { restored } }
+    }
+
 
     /** Other cards whose hanja field mentions the same character (or 훈 음 when no character is given). */
     suspend fun cardsSharingHanja(key: String, excludeCardId: Long): List<CardEntity> =

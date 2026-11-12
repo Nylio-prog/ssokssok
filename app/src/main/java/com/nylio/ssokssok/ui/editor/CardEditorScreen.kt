@@ -353,14 +353,10 @@ fun CardEditorScreen(container: AppContainer, nav: NavController, cardId: Long?,
                         style = koreanFieldStyle,
                     )
                 },
-                supportingText = {
-                    Text(
-                        when (vm.type) {
-                            CardType.WORD -> "The word in Hangul"
-                            CardType.SENTENCE -> "Select a part and tap “Make blank” to quiz just that part"
-                            CardType.GRAMMAR -> "The pattern, e.g. -아/어서 or V + 고 싶다"
-                        },
-                    )
+                supportingText = if (vm.type == CardType.SENTENCE) {
+                    { Text("Select a part, then tap “Make blank”") }
+                } else {
+                    null
                 },
                 textStyle = koreanFieldStyle,
                 shape = RoundedCornerShape(16.dp),
@@ -434,7 +430,6 @@ fun CardEditorScreen(container: AppContainer, nav: NavController, cardId: Long?,
                         vm.hanja, { vm.hanja = it },
                         label = { Text("한자") },
                         placeholder = { Text("新=새 신; 入=들 입; 生=날 생") },
-                        supportingText = { Text("Each syllable: meaning and reading (눈 설). The character is optional.") },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),

@@ -307,11 +307,6 @@ private fun FormatGuide(onCopy: (String, String) -> Unit) {
                 Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary)
                 Text("Ask any chat assistant for a deck", style = MaterialTheme.typography.titleMedium)
             }
-            Text(
-                "Type a topic, copy the prompt, paste it into the assistant, then share or paste its answer here.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
             OutlinedTextField(
                 value = topic,
                 onValueChange = { topic = it },
@@ -332,15 +327,8 @@ private fun FormatGuide(onCopy: (String, String) -> Unit) {
 
     SectionHeader("File format")
     Text(
-        "One card per line: Korean, then English, separated by a tab or |. Optional columns follow in this order: " +
-            "hanja (新=새 신; 入=들 입), example, example translation, notes, tags, type (word, sentence, grammar). " +
-            "A first line with column names lets you pick any order. “# deck: Name” starts a new deck; " +
-            "put it in folders with ::, as in “# deck: 서울대 한국어+::3A::1-1 시작과 만남”.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Text(
-        "Wrap part of a sentence in double braces, 저{{는}} 학생이에요, to turn it into a fill-the-blank card.",
+        "Korean | English | 한자 | example | translation | notes | tags. " +
+            "“# deck: Book::Unit” starts a deck in folders. 저{{는}} makes a blank.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -452,7 +440,7 @@ private fun Preview(
         DestinationOption(
             selected = target == null,
             title = if (result.decks.size > 1) "Decks named in the file" else "“${result.decks.first().name ?: "Imported deck"}”",
-            subtitle = "Creates the deck, or adds to an existing deck with the same name",
+            subtitle = null,
             onClick = { onTarget(null) },
         )
         DestinationOption(
@@ -465,7 +453,7 @@ private fun Preview(
         if (target != null) TargetPicker(decks, target, onTarget)
     }
     Text(
-        "Cards already in the deck (same Korean) get the file's English, 한자, example and notes. Their progress is kept.",
+        "Cards already in the deck are updated. Their progress is kept.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

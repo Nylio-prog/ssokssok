@@ -6,8 +6,10 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 @Entity(tableName = "decks")
+@Serializable
 data class DeckEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     /** Full path; folders are separated by "::", e.g. "서울대 한국어+::3A::1-1 시작과 만남". */
@@ -68,6 +70,7 @@ enum class CardType(val key: String, val label: String) {
     ],
     indices = [Index("deckId")],
 )
+@Serializable
 data class CardEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val deckId: Long,
@@ -123,6 +126,7 @@ object CardState {
     ],
     indices = [Index("cardId"), Index("due")],
 )
+@Serializable
 data class ProgressEntity(
     val cardId: Long,
     val direction: Int,
@@ -142,6 +146,7 @@ data class ProgressEntity(
 )
 
 @Entity(tableName = "reviews", indices = [Index("reviewedAt"), Index("cardId")])
+@Serializable
 data class ReviewLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val cardId: Long,

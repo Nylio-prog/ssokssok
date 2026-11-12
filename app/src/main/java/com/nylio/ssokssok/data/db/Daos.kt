@@ -166,3 +166,39 @@ interface ImportDao {
         return ids.size
     }
 }
+
+/** Whole-database reads and writes for backup and restore. Rows keep their ids. */
+@Dao
+interface BackupDao {
+    @Query("SELECT * FROM decks") suspend fun decks(): List<DeckEntity>
+    @Query("SELECT * FROM cards") suspend fun cards(): List<CardEntity>
+    @Query("SELECT * FROM progress") suspend fun progress(): List<ProgressEntity>
+    @Query("SELECT * FROM reviews") suspend fun reviews(): List<ReviewLogEntity>
+
+    @Query("DELETE FROM reviews") suspend fun clearReviews()
+    @Query("DELETE FROM progress") suspend fun clearProgress()
+    @Query("DELETE FROM cards") suspend fun clearCards()
+    @Query("DELETE FROM decks") suspend fun clearDecks()
+
+    @Insert suspend fun insertDecks(rows: List<DeckEntity>)
+    @Insert suspend fun insertCards(rows: List<CardEntity>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertProgress(rows: List<ProgressEntity>)
+    @Insert suspend fun insertReviews(rows: List<ReviewLogEntity>)
+
+    /** Wipes everything and writes the given rows, all or nothing. */
+    @Transaction
+    suspend fun replaceAll(
+        decks: List<DeckEntity>,
+        cards: List<CardEntity>,
+        progress: List<ProgressEntity>,
+        reviews: List<ReviewLogEntity>,
+    ) {
+        clearReviews(); clearProgress(); clearCards(); clearDecks()
+        insertDecks(decks)
+        insertCards(cards)
+        insertProgress(progress)
+        // Any card missing a direction gets a fresh row, as on import.
+        insertProgress(cards.flatMap { c -> Direction.entries.map { ProgressEntity(cardId = c.id, direction = it.id) } })
+        insertReviews(reviews)
+    }
+}

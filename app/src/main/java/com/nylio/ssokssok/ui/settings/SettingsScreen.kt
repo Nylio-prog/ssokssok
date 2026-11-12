@@ -19,8 +19,10 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -35,9 +37,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,10 +54,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.nylio.ssokssok.AppContainer
 import com.nylio.ssokssok.BuildConfig
+import com.nylio.ssokssok.data.Backup
+import com.nylio.ssokssok.data.BackupFile
 import com.nylio.ssokssok.data.ThemeMode
 import com.nylio.ssokssok.ui.Routes
 import com.nylio.ssokssok.ui.components.SectionHeader
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
@@ -62,15 +75,64 @@ fun SettingsScreen(container: AppContainer, nav: NavController) {
     val scope = rememberCoroutineScope()
     val update = container.settings::update
 
+    var pendingRestore by remember { mutableStateOf<BackupFile?>(null) }
+
     val backup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
             scope.launch {
-                val json = container.repository.exportAll()
-                runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } }
+                runCatching {
+                    val json = container.repository.backup(BuildConfig.VERSION_NAME)
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(json.toByteArray()) }
+                            ?: error("Couldn't open the file")
+                    }
+                }
                     .onSuccess { Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show() }
                     .onFailure { Toast.makeText(context, "Backup failed: ${it.message}", Toast.LENGTH_LONG).show() }
             }
         }
+    }
+
+    val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val text = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                            ?: error("Couldn't open the file")
+                    }
+                    withContext(Dispatchers.Default) { Backup.decode(text) }
+                }
+                    .onSuccess { pendingRestore = it }
+                    .onFailure { Toast.makeText(context, it.message ?: "Couldn't read the backup", Toast.LENGTH_LONG).show() }
+            }
+        }
+    }
+
+    pendingRestore?.let { b ->
+        val date = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")
+            .format(Instant.ofEpochMilli(b.createdAt).atZone(ZoneId.systemDefault()))
+        AlertDialog(
+            onDismissRequest = { pendingRestore = null },
+            title = { Text("Restore backup?") },
+            text = {
+                Text(
+                    "From $date: ${b.decks.size} decks, ${b.cards.size} cards, ${b.reviews.size} reviews.\n\n" +
+                        "Everything currently in the app is replaced.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingRestore = null
+                    scope.launch {
+                        runCatching { container.repository.restore(b) }
+                            .onSuccess { Toast.makeText(context, "Backup restored", Toast.LENGTH_SHORT).show() }
+                            .onFailure { Toast.makeText(context, "Restore failed: ${it.message}", Toast.LENGTH_LONG).show() }
+                    }
+                }) { Text("Restore", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text("Cancel") } },
+        )
     }
 
     Scaffold(
@@ -92,7 +154,7 @@ fun SettingsScreen(container: AppContainer, nav: NavController) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("New cards per day", style = MaterialTheme.typography.titleSmall)
-                        Text("Per deck. Each new card brings reviews in the days after.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Per deck", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     FilledTonalIconButton(onClick = { update { it.copy(newPerDay = (it.newPerDay - 5).coerceAtLeast(0)) } }) {
                         Icon(Icons.Outlined.Remove, "Fewer")
@@ -115,7 +177,7 @@ fun SettingsScreen(container: AppContainer, nav: NavController) {
                         steps = 16,
                     )
                     Text(
-                        "How likely you should be to remember a card when it comes back. Higher means more frequent reviews. 90% suits most people.",
+                        "Higher means more reviews. 90% suits most people.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -126,7 +188,7 @@ fun SettingsScreen(container: AppContainer, nav: NavController) {
             Group {
                 Toggle(
                     "Play Korean audio automatically",
-                    "Off: the app stays silent until you tap Listen. Uses your phone's text-to-speech; tap Listen twice to hear it slower.",
+                    "Tap Listen twice to hear it slower",
                     s.autoplayAudio,
                 ) { v -> update { it.copy(autoplayAudio = v) } }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -148,20 +210,18 @@ fun SettingsScreen(container: AppContainer, nav: NavController) {
             Group {
                 Link(Icons.Outlined.FileDownload, "Import cards", "From a file, pasted text or an AI chat") { nav.navigate(Routes.import()) }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Link(Icons.Outlined.IosShare, "Back up all decks", "Saves every deck and card as one JSON file") {
+                Link(Icons.Outlined.Backup, "Back up everything", "Cards, progress and history in one file") {
                     backup.launch("ssokssok-backup-${LocalDate.now()}.json")
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Link(Icons.Outlined.Restore, "Restore a backup", "Replaces everything in the app") {
+                    restore.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+                }
             }
-            Text(
-                "Backups hold your cards, not your review history.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
             SectionHeader("About")
             Text(
-                "ssokssok ${BuildConfig.VERSION_NAME}. Scheduling uses FSRS, the open spaced-repetition model also used by Anki. " +
-                    "Hard means you didn't know it, Medium that it took a moment, Easy that it came at once.",
+                "ssokssok ${BuildConfig.VERSION_NAME} · FSRS scheduling",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 32.dp),

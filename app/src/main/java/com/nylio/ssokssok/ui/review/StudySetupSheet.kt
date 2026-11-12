@@ -93,7 +93,7 @@ fun StudySetupSheet(
                 )
             }
 
-            SectionHeader("You see → you recall")
+            SectionHeader("Direction")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 DirectionMode.entries.forEachIndexed { i, d ->
                     SegmentedButton(
@@ -104,15 +104,6 @@ fun StudySetupSheet(
                     ) { Text(d.short, maxLines = 1) }
                 }
             }
-            Text(
-                when (direction) {
-                    DirectionMode.RECOGNIZE -> "Read Korean, recall the meaning. The gentlest way to start."
-                    DirectionMode.PRODUCE -> "Read English, come up with the Korean. Harder, and it sticks."
-                    DirectionMode.MIXED -> "Both ways. A word's English → Korean side unlocks once you recognise it."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
             SectionHeader("Answer by")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -131,15 +122,6 @@ fun StudySetupSheet(
                     ) { Text(if (m == AnswerMode.FLIP) "Flipping" else "Typing") }
                 }
             }
-            Text(
-                if (mode == AnswerMode.FLIP) {
-                    "Think of the answer, flip the card, then say how it went."
-                } else {
-                    "Type the answer. Small slips are caught letter by letter, down to the jamo."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
             SectionHeader("Cards per session")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -183,11 +165,6 @@ fun StudySetupSheet(
                         }
                     }
                 }
-                Text(
-                    "Practice and tough-card runs leave your schedule untouched.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

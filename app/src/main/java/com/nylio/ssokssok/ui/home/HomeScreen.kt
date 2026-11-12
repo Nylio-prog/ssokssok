@@ -292,12 +292,13 @@ private fun TodayCard(state: HomeState, onStudy: () -> Unit) {
                 )
             } else {
                 Text("All caught up", style = MaterialTheme.typography.headlineMedium)
-                Text(
-                    if (done > 0) "$done reviews done today. Come back tomorrow, or practice a bit more."
-                    else "Nothing is due. Practice a deck or add new words.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-                )
+                if (done > 0) {
+                    Text(
+                        "$done reviews today",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                    )
+                }
             }
             if (done > 0 && waiting > 0) {
                 SlimProgress(
@@ -496,7 +497,6 @@ fun NewDeckDialog(
                     onValueChange = { folder = it },
                     label = { Text("Folder (optional)") },
                     placeholder = { Text("서울대 한국어+ › 3A") },
-                    supportingText = { Text("Separate levels with › or /") },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                 )

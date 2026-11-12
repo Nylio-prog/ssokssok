@@ -69,11 +69,6 @@ fun StatsScreen(container: AppContainer) {
                 Modifier.weight(1f),
             )
         }
-        Text(
-            "Recall is the share of due reviews you got (Medium or Easy). Around 90% means the schedule is working.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
 
         SectionHeader("Activity, last 18 weeks")
         Panel { Heatmap(stats) }
@@ -307,13 +302,13 @@ private fun Breakdown(stats: StatsSnapshot) {
         }
         if (stats.tough > 0) {
             Text(
-                "${stats.tough} tough cards keep slipping. Study them on their own from any deck's study sheet.",
+                "${stats.tough} tough cards. Drill them from a deck's study sheet.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Text(
-            "Mastered means the next review is three weeks or more away.",
+            "Mastered: next review 3+ weeks away.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

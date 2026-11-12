@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.Serializable
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -19,6 +20,7 @@ enum class AnswerMode(val label: String) {
     TYPE("Type"),
 }
 
+@Serializable
 data class AppSettings(
     val newPerDay: Int = 15,
     val retention: Double = 0.90,

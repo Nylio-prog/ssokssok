@@ -448,7 +448,6 @@ private fun EditDeckDialog(
                     folder, { folder = it },
                     label = { Text("Folder") },
                     placeholder = { Text("서울대 한국어+ › 3A") },
-                    supportingText = { Text("Separate levels with › or /. Leave empty for none.") },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                 )

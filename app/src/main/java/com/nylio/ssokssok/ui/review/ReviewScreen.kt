@@ -735,7 +735,7 @@ private fun RatingBar(ui: ReviewUi, onRate: (Rating) -> Unit) {
                     color = if (suggested) fg else bg,
                     contentColor = if (suggested) MaterialTheme.colorScheme.surface else fg,
                     shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.weight(1f).heightIn(min = 78.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 64.dp),
                 ) {
                     Column(
                         Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
@@ -743,15 +743,6 @@ private fun RatingBar(ui: ReviewUi, onRate: (Rating) -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(r.label, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            r.hint,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center,
-                            color = LocalContentColorAlpha(0.8f),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
                         ui.previews[r]?.let {
                             Text(it, style = MaterialTheme.typography.labelMedium, color = LocalContentColorAlpha(0.8f))
                         }
@@ -759,13 +750,6 @@ private fun RatingBar(ui: ReviewUi, onRate: (Rating) -> Unit) {
                 }
             }
         }
-        Text(
-            "Swipe the card: right for Easy, left for Hard",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 
@@ -787,11 +771,9 @@ private fun SessionSummary(ui: ReviewUi, practice: Boolean, onDone: () -> Unit, 
     ) {
         Spacer(Modifier.height(24.dp))
         Text(if (total == 0) "텅 비었어요" else "수고했어요!", fontFamily = KoreanDisplay, fontSize = 40.sp)
-        Text(
-            if (total == 0) "Nothing to study here right now." else "Good work. That's the session.",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (total == 0) {
+            Text("Nothing to study here right now.", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         if (total > 0) {
             Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest, shape = RoundedCornerShape(28.dp)) {
                 Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
